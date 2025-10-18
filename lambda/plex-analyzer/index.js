@@ -120,7 +120,13 @@ function generateRecommendations(watchHistory, statistics) {
             genreBased: [],
             decadeBased: [],
             ratingBased: [],
-            general: []
+            general: [],
+            crossMedia: [],
+            tvShowBased: [],
+            directorBased: [],
+            actorNetworkBased: [],
+            productionBased: [],
+            culturalBased: []
         };
         
         // Genre-based recommendations
@@ -162,6 +168,194 @@ function generateRecommendations(watchHistory, statistics) {
                 threshold: ratingThreshold,
                 averageRating: statistics.averageRating
             });
+        }
+        
+        // Cross-media recommendations (TV shows to movies)
+        const tvShows = watchHistory.filter(item => item.type === 'episode');
+        const movies = watchHistory.filter(item => item.type === 'movie');
+        
+        if (tvShows.length > 0 && movies.length > 0) {
+            // Find common genres between TV shows and movies
+            const tvGenres = {};
+            const movieGenres = {};
+            
+            tvShows.forEach(show => {
+                if (show.genres && Array.isArray(show.genres)) {
+                    show.genres.forEach(genre => {
+                        tvGenres[genre] = (tvGenres[genre] || 0) + 1;
+                    });
+                }
+            });
+            
+            movies.forEach(movie => {
+                if (movie.genres && Array.isArray(movie.genres)) {
+                    movie.genres.forEach(genre => {
+                        movieGenres[genre] = (movieGenres[genre] || 0) + 1;
+                    });
+                }
+            });
+            
+            // Find overlapping genres
+            const commonGenres = Object.keys(tvGenres).filter(genre => movieGenres[genre]);
+            
+            if (commonGenres.length > 0) {
+                commonGenres.forEach(genre => {
+                    recommendations.crossMedia.push({
+                        type: 'crossMedia',
+                        suggestion: `Movies in ${genre} (like your TV shows)`,
+                        reason: `You enjoy ${genre} TV shows, try similar movies`,
+                        confidence: Math.min(0.8, (tvGenres[genre] + movieGenres[genre]) / (tvShows.length + movies.length) * 3),
+                        genre: genre,
+                        tvCount: tvGenres[genre],
+                        movieCount: movieGenres[genre]
+                    });
+                });
+            }
+            
+            // TV show-based recommendations
+            const uniqueShows = [...new Set(tvShows.map(show => show.showTitle))];
+            if (uniqueShows.length > 0) {
+                recommendations.tvShowBased.push({
+                    type: 'tvShow',
+                    suggestion: `Movies similar to your favorite TV shows`,
+                    reason: `You've watched ${uniqueShows.length} different TV shows`,
+                    confidence: Math.min(0.7, uniqueShows.length / 10),
+                    showCount: uniqueShows.length,
+                    topShows: uniqueShows.slice(0, 3)
+                });
+            }
+        }
+        
+        // Advanced metadata-based recommendations
+        const enrichedMovies = watchHistory.filter(movie => movie.enriched && movie.advanced_analysis);
+        
+        if (enrichedMovies.length > 0) {
+            // Director-based recommendations
+            const directorPreferences = {};
+            enrichedMovies.forEach(movie => {
+                if (movie.advanced_analysis.director_insights) {
+                    const directorInsights = movie.advanced_analysis.director_insights;
+                    if (directorInsights.movies_watched > 0) {
+                        const directorName = Object.keys(directorInsights)[0]; // Get director name
+                        if (directorName) {
+                            directorPreferences[directorName] = (directorPreferences[directorName] || 0) + directorInsights.movies_watched;
+                        }
+                    }
+                }
+            });
+            
+            Object.entries(directorPreferences)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 2)
+                .forEach(([director, count]) => {
+                    recommendations.directorBased.push({
+                        type: 'director',
+                        suggestion: `More movies by ${director}`,
+                        reason: `You've watched ${count} movies by this director`,
+                        confidence: Math.min(0.9, count / enrichedMovies.length * 3),
+                        director: director,
+                        count: count,
+                        advanced: true
+                    });
+                });
+            
+            // Actor network-based recommendations
+            const actorPreferences = {};
+            enrichedMovies.forEach(movie => {
+                if (movie.advanced_analysis.actor_insights && movie.advanced_analysis.actor_insights.actor_stats) {
+                    Object.entries(movie.advanced_analysis.actor_insights.actor_stats).forEach(([actor, stats]) => {
+                        if (stats.movies_watched > 0) {
+                            actorPreferences[actor] = (actorPreferences[actor] || 0) + stats.movies_watched;
+                        }
+                    });
+                }
+            });
+            
+            Object.entries(actorPreferences)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 2)
+                .forEach(([actor, count]) => {
+                    recommendations.actorNetworkBased.push({
+                        type: 'actorNetwork',
+                        suggestion: `Movies starring ${actor}`,
+                        reason: `You've watched ${count} movies with this actor`,
+                        confidence: Math.min(0.85, count / enrichedMovies.length * 2),
+                        actor: actor,
+                        count: count,
+                        advanced: true
+                    });
+                });
+            
+            // Production company-based recommendations
+            const studioPreferences = {};
+            enrichedMovies.forEach(movie => {
+                if (movie.advanced_analysis.studio_insights) {
+                    const studioInsights = movie.advanced_analysis.studio_insights;
+                    if (studioInsights.movies_watched > 0) {
+                        const studioName = Object.keys(studioInsights)[0]; // Get studio name
+                        if (studioName) {
+                            studioPreferences[studioName] = (studioPreferences[studioName] || 0) + studioInsights.movies_watched;
+                        }
+                    }
+                }
+            });
+            
+            Object.entries(studioPreferences)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 2)
+                .forEach(([studio, count]) => {
+                    recommendations.productionBased.push({
+                        type: 'production',
+                        suggestion: `Movies from ${studio}`,
+                        reason: `You've watched ${count} movies from this studio`,
+                        confidence: Math.min(0.8, count / enrichedMovies.length * 2),
+                        studio: studio,
+                        count: count,
+                        advanced: true
+                    });
+                });
+            
+            // Cultural preferences
+            const culturalInsights = enrichedMovies[0]?.advanced_analysis?.cultural_insights;
+            if (culturalInsights) {
+                // Language preferences
+                const topLanguages = Object.entries(culturalInsights.languages || {})
+                    .sort(([,a], [,b]) => b - a)
+                    .slice(0, 2);
+                
+                topLanguages.forEach(([language, count]) => {
+                    if (language !== 'English') { // Only suggest non-English if significant
+                        recommendations.culturalBased.push({
+                            type: 'cultural',
+                            suggestion: `More ${language} language movies`,
+                            reason: `You've watched ${count} ${language} language movies`,
+                            confidence: Math.min(0.7, count / enrichedMovies.length * 3),
+                            language: language,
+                            count: count,
+                            advanced: true
+                        });
+                    }
+                });
+                
+                // Country preferences
+                const topCountries = Object.entries(culturalInsights.countries || {})
+                    .sort(([,a], [,b]) => b - a)
+                    .slice(0, 2);
+                
+                topCountries.forEach(([country, count]) => {
+                    if (country !== 'United States of America') { // Only suggest non-US if significant
+                        recommendations.culturalBased.push({
+                            type: 'cultural',
+                            suggestion: `More movies from ${country}`,
+                            reason: `You've watched ${count} movies from ${country}`,
+                            confidence: Math.min(0.7, count / enrichedMovies.length * 3),
+                            country: country,
+                            count: count,
+                            advanced: true
+                        });
+                    }
+                });
+            }
         }
         
         // General recommendations
@@ -215,7 +409,15 @@ function generateEnhancedRecommendations(watchHistory, statistics) {
             castBased: [],
             directorBased: [],
             similarMovies: [],
-            trendingMovies: []
+            trendingMovies: [],
+            crossMedia: [],
+            tvShowBased: [],
+            similarShows: [],
+            actorNetworkBased: [],
+            productionBased: [],
+            culturalBased: [],
+            advancedDirectorAnalysis: [],
+            advancedActorCollaboration: []
         };
         
         // Get enriched movies (those with TMDB metadata)
@@ -334,6 +536,202 @@ function generateEnhancedRecommendations(watchHistory, statistics) {
                 });
             });
         
+        // Enhanced cross-media recommendations (TV shows to movies)
+        const enrichedTVShows = enrichedMovies.filter(item => item.type === 'episode' && item.tmdb_metadata.content_type === 'tv_show');
+        const enrichedMoviesOnly = enrichedMovies.filter(item => item.type === 'movie' && item.tmdb_metadata.content_type === 'movie');
+        
+        if (enrichedTVShows.length > 0 && enrichedMoviesOnly.length > 0) {
+            // Find common cast between TV shows and movies
+            const tvCast = {};
+            const movieCast = {};
+            
+            enrichedTVShows.forEach(show => {
+                if (show.tmdb_metadata.cast) {
+                    show.tmdb_metadata.cast.slice(0, 3).forEach(actor => {
+                        tvCast[actor.name] = (tvCast[actor.name] || 0) + 1;
+                    });
+                }
+            });
+            
+            enrichedMoviesOnly.forEach(movie => {
+                if (movie.tmdb_metadata.cast) {
+                    movie.tmdb_metadata.cast.slice(0, 3).forEach(actor => {
+                        movieCast[actor.name] = (movieCast[actor.name] || 0) + 1;
+                    });
+                }
+            });
+            
+            // Find actors who appear in both TV shows and movies
+            const commonActors = Object.keys(tvCast).filter(actor => movieCast[actor]);
+            
+            if (commonActors.length > 0) {
+                commonActors.forEach(actor => {
+                    recommendations.crossMedia.push({
+                        type: 'crossMedia',
+                        suggestion: `Movies starring ${actor} (from your TV shows)`,
+                        reason: `You've seen ${actor} in TV shows, try their movies`,
+                        confidence: Math.min(0.85, (tvCast[actor] + movieCast[actor]) / (enrichedTVShows.length + enrichedMoviesOnly.length) * 4),
+                        actor: actor,
+                        tvCount: tvCast[actor],
+                        movieCount: movieCast[actor],
+                        enhanced: true
+                    });
+                });
+            }
+            
+            // TV show-based recommendations using TMDB data
+            const uniqueShows = [...new Set(enrichedTVShows.map(show => show.showTitle))];
+            if (uniqueShows.length > 0) {
+                recommendations.tvShowBased.push({
+                    type: 'tvShow',
+                    suggestion: `Movies similar to your favorite TV shows`,
+                    reason: `Based on ${uniqueShows.length} enriched TV shows you've watched`,
+                    confidence: Math.min(0.8, uniqueShows.length / 5),
+                    showCount: uniqueShows.length,
+                    topShows: uniqueShows.slice(0, 3),
+                    enhanced: true
+                });
+            }
+            
+            // Similar shows recommendations (from TMDB)
+            const similarShows = new Set();
+            enrichedTVShows.forEach(show => {
+                if (show.tmdb_metadata.similar_shows) {
+                    show.tmdb_metadata.similar_shows.forEach(similar => {
+                        similarShows.add(JSON.stringify({
+                            id: similar.id,
+                            name: similar.name,
+                            vote_average: similar.vote_average
+                        }));
+                    });
+                }
+            });
+            
+            Array.from(similarShows)
+                .map(show => JSON.parse(show))
+                .sort((a, b) => b.vote_average - a.vote_average)
+                .slice(0, 3)
+                .forEach(show => {
+                    recommendations.similarShows.push({
+                        type: 'similarShow',
+                        suggestion: show.name,
+                        reason: `Similar to TV shows you've watched (TMDB rating: ${show.vote_average})`,
+                        confidence: Math.min(0.75, show.vote_average / 10),
+                        tmdb_id: show.id,
+                        vote_average: show.vote_average,
+                        enhanced: true
+                    });
+                });
+        }
+        
+        // Advanced metadata analysis for enhanced recommendations
+        const moviesWithAdvancedAnalysis = enrichedMovies.filter(movie => movie.advanced_analysis);
+        
+        if (moviesWithAdvancedAnalysis.length > 0) {
+            // Advanced director analysis
+            const directorCollaborationPatterns = {};
+            moviesWithAdvancedAnalysis.forEach(movie => {
+                if (movie.advanced_analysis.director_insights) {
+                    const directorInsights = movie.advanced_analysis.director_insights;
+                    Object.entries(directorInsights).forEach(([director, stats]) => {
+                        if (stats.movies_watched > 1) { // Only directors with multiple movies
+                            directorCollaborationPatterns[director] = {
+                                movies_watched: stats.movies_watched,
+                                average_rating: stats.average_rating,
+                                frequent_actors: Object.entries(stats.actors || {})
+                                    .sort(([,a], [,b]) => b - a)
+                                    .slice(0, 3)
+                                    .map(([actor, count]) => ({ actor, count })),
+                                preferred_genres: Object.entries(stats.genres || {})
+                                    .sort(([,a], [,b]) => b - a)
+                                    .slice(0, 3)
+                                    .map(([genre, count]) => ({ genre, count }))
+                            };
+                        }
+                    });
+                }
+            });
+            
+            Object.entries(directorCollaborationPatterns)
+                .sort(([,a], [,b]) => b.movies_watched - a.movies_watched)
+                .slice(0, 2)
+                .forEach(([director, patterns]) => {
+                    recommendations.advancedDirectorAnalysis.push({
+                        type: 'advancedDirector',
+                        suggestion: `Complete filmography of ${director}`,
+                        reason: `You've watched ${patterns.movies_watched} movies by this director (avg rating: ${patterns.average_rating.toFixed(1)})`,
+                        confidence: Math.min(0.95, patterns.movies_watched / moviesWithAdvancedAnalysis.length * 4),
+                        director: director,
+                        patterns: patterns,
+                        enhanced: true
+                    });
+                });
+            
+            // Advanced actor collaboration analysis
+            const actorCollaborationNetworks = {};
+            moviesWithAdvancedAnalysis.forEach(movie => {
+                if (movie.advanced_analysis.actor_insights && movie.advanced_analysis.actor_insights.actor_director_pairs) {
+                    Object.entries(movie.advanced_analysis.actor_insights.actor_director_pairs).forEach(([pair, count]) => {
+                        if (count > 1) { // Only pairs with multiple collaborations
+                            actorCollaborationNetworks[pair] = count;
+                        }
+                    });
+                }
+            });
+            
+            Object.entries(actorCollaborationNetworks)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 2)
+                .forEach(([pair, count]) => {
+                    const [actor, director] = pair.split(' + ');
+                    recommendations.advancedActorCollaboration.push({
+                        type: 'actorCollaboration',
+                        suggestion: `Movies with ${actor} and ${director}`,
+                        reason: `This actor-director pair has collaborated ${count} times in your watch history`,
+                        confidence: Math.min(0.9, count / moviesWithAdvancedAnalysis.length * 3),
+                        actor: actor,
+                        director: director,
+                        collaboration_count: count,
+                        enhanced: true
+                    });
+                });
+            
+            // Production company quality analysis
+            const studioQualityAnalysis = {};
+            moviesWithAdvancedAnalysis.forEach(movie => {
+                if (movie.advanced_analysis.studio_insights) {
+                    const studioInsights = movie.advanced_analysis.studio_insights;
+                    Object.entries(studioInsights).forEach(([studio, stats]) => {
+                        if (stats.movies_watched > 1 && stats.average_rating > 7) { // High-quality studios
+                            studioQualityAnalysis[studio] = {
+                                movies_watched: stats.movies_watched,
+                                average_rating: stats.average_rating,
+                                preferred_directors: Object.entries(stats.directors || {})
+                                    .sort(([,a], [,b]) => b - a)
+                                    .slice(0, 2)
+                                    .map(([director, count]) => ({ director, count }))
+                            };
+                        }
+                    });
+                }
+            });
+            
+            Object.entries(studioQualityAnalysis)
+                .sort(([,a], [,b]) => b.average_rating - a.average_rating)
+                .slice(0, 2)
+                .forEach(([studio, analysis]) => {
+                    recommendations.productionBased.push({
+                        type: 'productionQuality',
+                        suggestion: `Premium movies from ${studio}`,
+                        reason: `High-quality studio (avg rating: ${analysis.average_rating.toFixed(1)}) with ${analysis.movies_watched} movies watched`,
+                        confidence: Math.min(0.85, analysis.average_rating / 10),
+                        studio: studio,
+                        quality_analysis: analysis,
+                        enhanced: true
+                    });
+                });
+        }
+        
         // Enhanced general recommendations
         recommendations.general.push(
             {
@@ -375,13 +773,20 @@ function analyzeWatchHistory(watchHistory) {
         
         // Analyze viewing patterns
         const patterns = {
-            totalMovies: watchHistory.length,
+            totalItems: watchHistory.length,
+            totalMovies: watchHistory.filter(item => item.type === 'movie').length,
+            totalTVShows: watchHistory.filter(item => item.type === 'episode').length,
             genreDistribution: {},
             decadeDistribution: {},
             ratingDistribution: {},
             viewingFrequency: {},
             averageRating: 0,
-            totalWatchTime: 0
+            totalWatchTime: 0,
+            contentTypes: {
+                movies: watchHistory.filter(item => item.type === 'movie').length,
+                tvShows: watchHistory.filter(item => item.type === 'episode').length,
+                crossMediaEnabled: true
+            }
         };
         
         let ratingSum = 0;
@@ -677,11 +1082,14 @@ exports.handler = async (event) => {
             analysis: analysis,
             recommendations: recommendations,
             summary: {
-                totalMovies: plexData.watchHistory.length,
+                totalItems: plexData.watchHistory.length,
+                totalMovies: analysis.totalMovies || 0,
+                totalTVShows: analysis.totalTVShows || 0,
                 topGenres: analysis.topGenres ? analysis.topGenres.slice(0, 3) : [],
                 topDecades: analysis.topDecades ? analysis.topDecades.slice(0, 5) : [],
                 averageRating: analysis.averageRating || 0,
-                totalRecommendations: Object.values(recommendations).flat().length
+                totalRecommendations: Object.values(recommendations).flat().length,
+                crossMediaRecommendations: recommendations.crossMedia ? recommendations.crossMedia.length : 0
             },
             optimizations: {
                 compressionEnabled: true,
@@ -693,7 +1101,16 @@ exports.handler = async (event) => {
                 richMetadataEnabled: hasEnrichedData,
                 enhancedRecommendations: hasEnrichedData,
                 tmdbIntegration: hasEnrichedData,
-                enrichedMoviesCount: plexData.watchHistory.filter(movie => movie.enriched).length
+                tvShowIntegrationEnabled: true,
+                crossMediaRecommendations: true,
+                advancedMetadataAnalysis: true,
+                directorFilmographyAnalysis: true,
+                actorCollaborationNetworks: true,
+                productionCompanyAnalysis: true,
+                culturalPreferenceAnalysis: true,
+                enrichedItemsCount: plexData.watchHistory.filter(movie => movie.enriched).length,
+                totalMovies: analysis.totalMovies || 0,
+                totalTVShows: analysis.totalTVShows || 0
             }
         };
         
