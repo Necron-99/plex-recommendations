@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎬 Plex Movie Recommendations</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .status-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .status-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .status-message {
+            color: #666;
+            margin-bottom: 15px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: transform 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 1.2em;
+        }
+        
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #c62828;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .stat-label {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .recommendations-section {
+            margin: 40px 0;
+        }
+        
+        .section-title {
+            font-size: 1.8em;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .recommendation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .recommendation-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .recommendation-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        
+        .recommendation-list {
+            list-style: none;
+        }
+        
+        .recommendation-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            color: #666;
+        }
+        
+        .recommendation-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .confidence-bar {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 8px;
+            margin: 5px 0;
+            overflow: hidden;
+        }
+        
+        .confidence-fill {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        
+        .last-updated {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            margin-top: 20px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Plex Movie Recommendations</h1>
+        
+        <div class="status-section">
+            <div class="status-title">System Status</div>
+            <div class="status-message" id="status-message">
+                Ready to analyze your Plex watch history and generate recommendations.
+            </div>
+            <div class="action-buttons">
+                <button class="btn" id="update-btn" onclick="updateRecommendations()">
+                    🔄 Update Recommendations
+                </button>
+                <button class="btn btn-secondary" onclick="viewRawData()">
+                    📊 View Raw Data
+                </button>
+            </div>
+        </div>
+        
+        <div id="loading" class="loading hidden">
+            <p>🎬 Analyzing your Plex watch history...</p>
+            <p>This may take a moment...</p>
+        </div>
+        
+        <div id="error" class="error hidden">
+            <h3>❌ Error</h3>
+            <p id="error-message"></p>
+        </div>
+        
+        <div id="content" class="hidden">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-movies">-</div>
+                    <div class="stat-label">Movies Watched</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="avg-rating">-</div>
+                    <div class="stat-label">Average Rating</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="top-genre">-</div>
+                    <div class="stat-label">Favorite Genre</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="total-recommendations">-</div>
+                    <div class="stat-label">Recommendations</div>
+                </div>
+            </div>
+            
+            <div class="recommendations-section">
+                <h2 class="section-title">🎯 Genre-Based Recommendations</h2>
+                <div class="recommendation-grid">
+                    <div class="recommendation-card">
+                        <div class="recommendation-title">Your Top Genres</div>
+                        <div id="top-genres"></div>
+                    </div>
+                    <div class="recommendation-card">
+                        <div class="recommendation-title">Genre Recommendations</div>
+                        <ul class="recommendation-list" id="genre-recommendations"></ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="recommendations-section">
+                <h2 class="section-title">📅 Time-Based Recommendations</h2>
+                <div class="recommendation-grid">
+                    <div class="recommendation-card">
+                        <div class="recommendation-title">Your Preferred Decades</div>
+                        <div id="top-decades"></div>
+                    </div>
+                    <div class="recommendation-card">
+                        <div class="recommendation-title">Decade Recommendations</div>
+                        <ul class="recommendation-list" id="decade-recommendations"></ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="recommendations-section">
+                <h2 class="section-title">⭐ Rating-Based Recommendations</h2>
+                <div class="recommendation-grid">
+                    <div class="recommendation-card">
+                        <div class="recommendation-title">Your Rating Preferences</div>
+                        <div id="rating-info"></div>
+                    </div>
+                    <div class="recommendation-card">
+                        <div class="recommendation-title">Rating Recommendations</div>
+                        <ul class="recommendation-list" id="rating-recommendations"></ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="recommendations-section">
+                <h2 class="section-title">💡 General Recommendations</h2>
+                <div class="recommendation-grid">
+                    <div class="recommendation-card">
+                        <div class="recommendation-title">Personalized Suggestions</div>
+                        <ul class="recommendation-list" id="general-recommendations"></ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="last-updated">
+                <p>Last updated: <span id="last-updated">-</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentData = null;
+        
+        async function updateRecommendations() {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const content = document.getElementById('content');
+            const statusMessage = document.getElementById('status-message');
+            const updateBtn = document.getElementById('update-btn');
+            const errorMessage = document.getElementById('error-message');
+            
+            // Show loading, hide others
+            loading.classList.remove('hidden');
+            error.classList.add('hidden');
+            content.classList.add('hidden');
+            updateBtn.disabled = true;
+            statusMessage.textContent = 'Updating recommendations...';
+            
+            try {
+                // Call the Lambda function
+                const response = await fetch('https://lbfggdldp3.execute-api.us-east-1.amazonaws.com/prod/plex-analyzer');
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.message || 'Failed to fetch recommendations');
+                }
+                
+                // Hide loading, show content
+                loading.classList.add('hidden');
+                content.classList.remove('hidden');
+                updateBtn.disabled = false;
+                statusMessage.textContent = 'Recommendations updated successfully!';
+                
+                // Store current data
+                currentData = data;
+                
+                // Update the page with data
+                updatePage(data);
+                
+            } catch (err) {
+                console.error('Error updating recommendations:', err);
+                loading.classList.add('hidden');
+                error.classList.remove('hidden');
+                updateBtn.disabled = false;
+                statusMessage.textContent = 'Failed to update recommendations';
+                errorMessage.textContent = err.message;
+            }
+        }
+        
+        function updatePage(data) {
+            // Update stats
+            document.getElementById('total-movies').textContent = data.summary.totalMovies || 0;
+            document.getElementById('avg-rating').textContent = data.summary.averageRating || 'N/A';
+            document.getElementById('top-genre').textContent = data.summary.topGenres[0]?.genre || 'N/A';
+            document.getElementById('total-recommendations').textContent = data.summary.totalRecommendations || 0;
+            
+            // Update last updated
+            document.getElementById('last-updated').textContent = new Date(data.generatedAt).toLocaleString();
+        }
+        
+        function viewRawData() {
+            if (currentData) {
+                const newWindow = window.open('', '_blank');
+                newWindow.document.write(`
+                    <html>
+                        <head><title>Raw Plex Data</title></head>
+                        <body>
+                            <h1>Raw Plex Analysis Data</h1>
+                            <pre>${JSON.stringify(currentData, null, 2)}</pre>
+                        </body>
+                    </html>
+                `);
+            } else {
+                alert('No data available. Please update recommendations first.');
+            }
+        }
+        
+        // Load recommendations when page loads
+        window.addEventListener('load', () => {
+            updateRecommendations();
+        });
+    </script>
+</body>
+</html>
