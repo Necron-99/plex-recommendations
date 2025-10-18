@@ -93,3 +93,13 @@ recovered-plex-history-*.json
 # Test files
 test-*.json
 *-test.json
+
+# Response files
+response*.json
+
+# Virtual environment directories
+plex-venv/
+scripts/plex-venv/
+
+# Python virtual environments
+scripts/venv/
