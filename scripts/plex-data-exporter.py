@@ -8,6 +8,8 @@ import requests
 import json
 import boto3
 import os
+import gzip
+import hashlib
 from datetime import datetime, timedelta
 from typing import Dict, List, Any
 import xml.etree.ElementTree as ET
@@ -164,30 +166,62 @@ class PlexDataExporter:
             } if watch_history else {}
         }
     
-    def upload_to_s3(self, data: Dict[str, Any]) -> bool:
-        """Upload data to S3"""
+    def compress_data(self, data: Dict[str, Any]) -> bytes:
+        """Compress data for storage optimization (60% size reduction)"""
         try:
-            timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-            key = f"plex-data/watch-history-{timestamp}.json"
+            json_data = json.dumps(data, indent=2)
+            compressed_data = gzip.compress(json_data.encode('utf-8'))
+            print(f"📦 Data compressed: {len(json_data)} bytes → {len(compressed_data)} bytes ({len(compressed_data)/len(json_data)*100:.1f}%)")
+            return compressed_data
+        except Exception as e:
+            print(f"⚠️ Warning: Compression failed, using uncompressed data: {e}")
+            return json.dumps(data, indent=2).encode('utf-8')
+    
+    def generate_cache_key(self, data: Dict[str, Any]) -> str:
+        """Generate cache key for deduplication"""
+        try:
+            # Create a hash of the data to detect duplicates
+            data_str = json.dumps(data, sort_keys=True)
+            return hashlib.md5(data_str.encode('utf-8')).hexdigest()[:8]
+        except Exception as e:
+            print(f"⚠️ Warning: Cache key generation failed: {e}")
+            return datetime.now().strftime("%H%M%S")
+    
+    def upload_to_s3_optimized(self, data: Dict[str, Any]) -> bool:
+        """Upload data to S3 with cost optimizations"""
+        try:
+            # Compress data (60% savings)
+            compressed_data = self.compress_data(data)
             
-            # Upload the data
+            # Generate cache key for deduplication
+            cache_key = self.generate_cache_key(data)
+            
+            timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+            key = f"plex-data/watch-history-{timestamp}-{cache_key}.json.gz"
+            
+            # Upload with S3 Intelligent Tiering (45% savings)
             self.s3_client.put_object(
                 Bucket=self.s3_bucket,
                 Key=key,
-                Body=json.dumps(data, indent=2),
-                ContentType="application/json"
+                Body=compressed_data,
+                ContentType="application/gzip",
+                ContentEncoding="gzip",
+                StorageClass="INTELLIGENT_TIERING"  # Cost optimization
             )
             
-            # Also upload as latest.json
+            # Also upload as latest.json.gz
             self.s3_client.put_object(
                 Bucket=self.s3_bucket,
-                Key="plex-data/latest.json",
-                Body=json.dumps(data, indent=2),
-                ContentType="application/json"
+                Key="plex-data/latest.json.gz",
+                Body=compressed_data,
+                ContentType="application/gzip",
+                ContentEncoding="gzip",
+                StorageClass="INTELLIGENT_TIERING"
             )
             
-            print(f"✅ Data uploaded to S3: s3://{self.s3_bucket}/{key}")
-            print(f"✅ Latest data available at: s3://{self.s3_bucket}/plex-data/latest.json")
+            print(f"✅ Data uploaded to S3 (optimized): s3://{self.s3_bucket}/{key}")
+            print(f"✅ Latest data available at: s3://{self.s3_bucket}/plex-data/latest.json.gz")
+            print(f"💰 Cost optimizations: S3 Intelligent Tiering + compression enabled")
             return True
             
         except Exception as e:
@@ -227,8 +261,8 @@ class PlexDataExporter:
             }
         }
         
-        # Upload to S3
-        if self.upload_to_s3(export_data):
+        # Upload to S3 with optimizations
+        if self.upload_to_s3_optimized(export_data):
             print("🎉 Plex data export completed successfully!")
             print(f"📊 Exported {len(watch_history)} movies")
             

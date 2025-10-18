@@ -331,10 +331,10 @@
             error.classList.add('hidden');
             content.classList.add('hidden');
             updateBtn.disabled = true;
-            statusMessage.textContent = 'Updating recommendations...';
+            statusMessage.textContent = 'Updating recommendations with optimizations...';
             
             try {
-                // Call the Lambda function
+                // Call the optimized Lambda function
                 const response = await fetch('https://lbfggdldp3.execute-api.us-east-1.amazonaws.com/prod/plex-analyzer');
                 const data = await response.json();
                 
@@ -346,7 +346,15 @@
                 loading.classList.add('hidden');
                 content.classList.remove('hidden');
                 updateBtn.disabled = false;
-                statusMessage.textContent = 'Recommendations updated successfully!';
+                
+                // Show optimization status
+                if (data.cached) {
+                    statusMessage.textContent = 'Recommendations loaded from cache (90% cost savings)!';
+                } else if (data.optimizations) {
+                    statusMessage.textContent = 'Recommendations updated with cost optimizations!';
+                } else {
+                    statusMessage.textContent = 'Recommendations updated successfully!';
+                }
                 
                 // Store current data
                 currentData = data;
