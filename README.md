@@ -178,3 +178,4 @@ For issues and questions:
 - Create an issue in this repository
 - Check the troubleshooting section in SETUP.md
 - Review AWS CloudWatch logs for detailed error information
+# plex-recommendations
