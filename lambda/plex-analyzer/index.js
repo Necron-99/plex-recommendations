@@ -1,12 +1,109 @@
 const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 
+// Genre inference function for movies without genre data
+function inferGenresFromTitle(title, year) {
+    const genres = [];
+    const titleLower = title.toLowerCase();
+    
+    // Action keywords
+    if (titleLower.includes('action') || titleLower.includes('fight') || titleLower.includes('war') || 
+        titleLower.includes('battle') || titleLower.includes('gun') || titleLower.includes('explosion')) {
+        genres.push('Action');
+    }
+    
+    // Comedy keywords
+    if (titleLower.includes('comedy') || titleLower.includes('funny') || titleLower.includes('laugh') ||
+        titleLower.includes('joke') || titleLower.includes('humor')) {
+        genres.push('Comedy');
+    }
+    
+    // Drama keywords
+    if (titleLower.includes('drama') || titleLower.includes('story') || titleLower.includes('life') ||
+        titleLower.includes('family') || titleLower.includes('love')) {
+        genres.push('Drama');
+    }
+    
+    // Horror keywords
+    if (titleLower.includes('horror') || titleLower.includes('scary') || titleLower.includes('fright') ||
+        titleLower.includes('monster') || titleLower.includes('ghost') || titleLower.includes('zombie')) {
+        genres.push('Horror');
+    }
+    
+    // Sci-Fi keywords
+    if (titleLower.includes('sci-fi') || titleLower.includes('space') || titleLower.includes('future') ||
+        titleLower.includes('robot') || titleLower.includes('alien') || titleLower.includes('time travel')) {
+        genres.push('Sci-Fi');
+    }
+    
+    // Thriller keywords
+    if (titleLower.includes('thriller') || titleLower.includes('suspense') || titleLower.includes('mystery') ||
+        titleLower.includes('crime') || titleLower.includes('detective')) {
+        genres.push('Thriller');
+    }
+    
+    // Romance keywords
+    if (titleLower.includes('romance') || titleLower.includes('love') || titleLower.includes('romantic') ||
+        titleLower.includes('wedding') || titleLower.includes('kiss')) {
+        genres.push('Romance');
+    }
+    
+    // Adventure keywords
+    if (titleLower.includes('adventure') || titleLower.includes('journey') || titleLower.includes('quest') ||
+        titleLower.includes('expedition') || titleLower.includes('treasure')) {
+        genres.push('Adventure');
+    }
+    
+    // Fantasy keywords
+    if (titleLower.includes('fantasy') || titleLower.includes('magic') || titleLower.includes('wizard') ||
+        titleLower.includes('dragon') || titleLower.includes('fairy')) {
+        genres.push('Fantasy');
+    }
+    
+    // Animation keywords
+    if (titleLower.includes('animation') || titleLower.includes('cartoon') || titleLower.includes('animated') ||
+        titleLower.includes('pixar') || titleLower.includes('disney')) {
+        genres.push('Animation');
+    }
+    
+    // Documentary keywords
+    if (titleLower.includes('documentary') || titleLower.includes('doc') || titleLower.includes('real') ||
+        titleLower.includes('true story') || titleLower.includes('biography')) {
+        genres.push('Documentary');
+    }
+    
+    // If no genres found, try to infer from year
+    if (genres.length === 0) {
+        if (year) {
+            const yearNum = parseInt(year);
+            if (yearNum >= 1980 && yearNum < 1990) {
+                genres.push('80s Cinema');
+            } else if (yearNum >= 1990 && yearNum < 2000) {
+                genres.push('90s Cinema');
+            } else if (yearNum >= 2000 && yearNum < 2010) {
+                genres.push('2000s Cinema');
+            } else if (yearNum >= 2010 && yearNum < 2020) {
+                genres.push('2010s Cinema');
+            } else if (yearNum >= 2020) {
+                genres.push('2020s Cinema');
+            }
+        }
+        
+        // Final fallback
+        if (genres.length === 0) {
+            genres.push('General Entertainment');
+        }
+    }
+    
+    return genres;
+}
+
 // Initialize S3 client with optimizations
 const s3Client = new S3Client({ 
     region: 'us-east-1',
     maxAttempts: 3, // Reduce retry attempts for cost savings
     requestTimeout: 30000 // 30 second timeout
 });
-const S3_BUCKET = 'robert-consulting-cache';
+const S3_BUCKET = 'your-s3-bucket-name';
 
 // Cache for optimization
 const analysisCache = new Map();
@@ -292,23 +389,40 @@ function analyzeWatchHistory(watchHistory) {
         let totalDuration = 0;
         
         watchHistory.forEach(movie => {
-            // Genre analysis
+        // Genre analysis - handle both array and string formats
+        if (movie.genres && Array.isArray(movie.genres)) {
             movie.genres.forEach(genre => {
                 patterns.genreDistribution[genre] = (patterns.genreDistribution[genre] || 0) + 1;
             });
+        } else if (movie.genre && typeof movie.genre === 'string') {
+            // Handle single genre string
+            patterns.genreDistribution[movie.genre] = (patterns.genreDistribution[movie.genre] || 0) + 1;
+        } else {
+            // Fallback: infer genres from movie titles and years
+            const inferredGenres = inferGenresFromTitle(movie.title, movie.year);
+            inferredGenres.forEach(genre => {
+                patterns.genreDistribution[genre] = (patterns.genreDistribution[genre] || 0) + 1;
+            });
+        }
             
             // Decade analysis
             if (movie.year) {
-                const decade = Math.floor(movie.year / 10) * 10;
-                patterns.decadeDistribution[decade] = (patterns.decadeDistribution[decade] || 0) + 1;
+                const year = parseInt(movie.year);
+                if (!isNaN(year)) {
+                    const decade = Math.floor(year / 10) * 10;
+                    patterns.decadeDistribution[decade] = (patterns.decadeDistribution[decade] || 0) + 1;
+                }
             }
             
             // Rating analysis
             if (movie.rating) {
-                const ratingRange = Math.floor(movie.rating);
-                patterns.ratingDistribution[ratingRange] = (patterns.ratingDistribution[ratingRange] || 0) + 1;
-                ratingSum += movie.rating;
-                ratingCount++;
+                const rating = parseFloat(movie.rating);
+                if (!isNaN(rating)) {
+                    const ratingRange = Math.floor(rating);
+                    patterns.ratingDistribution[ratingRange] = (patterns.ratingDistribution[ratingRange] || 0) + 1;
+                    ratingSum += rating;
+                    ratingCount++;
+                }
             }
             
             // Duration analysis
@@ -327,7 +441,19 @@ function analyzeWatchHistory(watchHistory) {
         patterns.averageRating = ratingCount > 0 ? ratingSum / ratingCount : 0;
         patterns.totalWatchTime = totalDuration; // in minutes
         
+        // Generate top genres and decades for recommendations
+        patterns.topGenres = Object.entries(patterns.genreDistribution)
+            .map(([genre, count]) => ({ genre, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5);
+            
+        patterns.topDecades = Object.entries(patterns.decadeDistribution)
+            .map(([decade, count]) => ({ decade: `${decade}s`, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 3);
+        
         console.log('✅ Watch history analysis completed');
+        console.log(`📊 Found ${patterns.topGenres.length} genres and ${patterns.topDecades.length} decades`);
         return patterns;
         
     } catch (error) {
@@ -475,8 +601,8 @@ exports.handler = async (event) => {
         
         console.log('🎬 Starting optimized Plex data analysis...');
         
-        // Generate cache key for optimization
-        const cacheKey = `analysis-${new Date().toISOString().split('T')[0]}`;
+        // Generate cache key for optimization (include timestamp to force refresh)
+        const cacheKey = `analysis-${new Date().toISOString().split('T')[0]}-${Date.now()}`;
         
         // Check cache first (90% savings on repeated analysis)
         const cachedResult = getCachedAnalysis(cacheKey);
@@ -493,7 +619,9 @@ exports.handler = async (event) => {
                 body: JSON.stringify({
                     message: 'Plex data analysis completed successfully (cached)',
                     summary: cachedResult.summary,
+                    recommendations: cachedResult.recommendations,
                     recommendationsCount: cachedResult.summary.totalRecommendations,
+                    phase2Enhancements: cachedResult.phase2Enhancements,
                     cached: true,
                     generatedAt: cachedResult.generatedAt
                 })
@@ -534,7 +662,7 @@ exports.handler = async (event) => {
         const hasEnrichedData = plexData.watchHistory.some(movie => movie.enriched && movie.tmdb_metadata);
         const recommendations = hasEnrichedData 
             ? generateEnhancedRecommendations(plexData.watchHistory, plexData.statistics)
-            : generateRecommendations(plexData.watchHistory, plexData.statistics);
+            : generateRecommendations(plexData.watchHistory, analysis);
         
         console.log(`🎬 Phase 2 Enhancement 1: ${hasEnrichedData ? 'Enhanced' : 'Basic'} recommendations generated`);
         
@@ -550,9 +678,9 @@ exports.handler = async (event) => {
             recommendations: recommendations,
             summary: {
                 totalMovies: plexData.watchHistory.length,
-                topGenres: plexData.statistics.topGenres.slice(0, 3),
-                topDecades: plexData.statistics.topDecades.slice(0, 2),
-                averageRating: plexData.statistics.averageRating,
+                topGenres: analysis.topGenres ? analysis.topGenres.slice(0, 3) : [],
+                topDecades: analysis.topDecades ? analysis.topDecades.slice(0, 5) : [],
+                averageRating: analysis.averageRating || 0,
                 totalRecommendations: Object.values(recommendations).flat().length
             },
             optimizations: {
@@ -586,9 +714,11 @@ exports.handler = async (event) => {
             body: JSON.stringify({
                 message: 'Optimized Plex data analysis completed successfully',
                 summary: analysisData.summary,
+                recommendations: analysisData.recommendations,
                 recommendationsCount: analysisData.summary.totalRecommendations,
                 savedTo: savedKey,
                 optimizations: analysisData.optimizations,
+                phase2Enhancements: analysisData.phase2Enhancements,
                 generatedAt: analysisData.generatedAt
             })
         };

@@ -11,16 +11,22 @@ import os
 import gzip
 import hashlib
 from datetime import datetime, timedelta
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import xml.etree.ElementTree as ET
 import sys
+import time
 
 # Configuration
-PLEX_SERVER = "192.168.0.109:32400"
-PLEX_TOKEN = "iUAXXUBe9Hno42-aHy5E"
-S3_BUCKET = "robert-consulting-cache"
+PLEX_SERVER = "your-plex-server:32400"
+PLEX_TOKEN = "your_plex_token_here"
+S3_BUCKET = "your-s3-bucket-name"
 AWS_PROFILE = "default"  # or specify a profile
 AWS_REGION = "us-east-1"
+
+# TMDB API Configuration for rich metadata
+TMDB_API_KEY = "your_tmdb_api_key_here"  # Get from https://www.themoviedb.org/settings/api
+TMDB_BASE_URL = "https://api.themoviedb.org/3"
+TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p"
 
 class PlexDataExporter:
     def __init__(self):
@@ -103,22 +109,40 @@ class PlexDataExporter:
             watch_history = []
             
             for video in root.findall("Video"):
-                # Only process movies (not TV episodes)
-                if video.get("type") == "movie":
+                # Process both movies and TV episodes for better recommendations
+                if video.get("type") in ["movie", "episode"]:
+                    # Handle both movies and TV episodes
+                    content_type = video.get("type", "movie")
+                    if content_type == "episode":
+                        # For TV episodes, use the show title and season/episode info
+                        title = video.get("grandparentTitle", video.get("title", ""))  # Show title
+                        season = video.get("parentIndex", "")
+                        episode = video.get("index", "")
+                        full_title = f"{title} (S{season}E{episode})" if season and episode else title
+                    else:
+                        # For movies, use the movie title
+                        full_title = video.get("title", "")
+                    
                     movie_data = {
-                        "title": video.get("title", ""),
+                        "title": full_title,
+                        "originalTitle": video.get("title", ""),
+                        "showTitle": video.get("grandparentTitle", "") if content_type == "episode" else "",
+                        "season": video.get("parentIndex", "") if content_type == "episode" else "",
+                        "episode": video.get("index", "") if content_type == "episode" else "",
                         "year": int(video.get("year", 0)) if video.get("year") else None,
                         "genres": [g.strip() for g in video.get("genre", "").split(",") if g.strip()],
                         "rating": float(video.get("rating", 0)) if video.get("rating") else None,
                         "duration": int(video.get("duration", 0)) if video.get("duration") else None,
                         "viewedAt": datetime.fromtimestamp(int(video.get("viewedAt", 0))).isoformat() if video.get("viewedAt") else None,
-                        "type": video.get("type", "movie"),
+                        "type": content_type,
                         "studio": video.get("studio", ""),
                         "summary": video.get("summary", "")
                     }
                     watch_history.append(movie_data)
             
-            print(f"✅ Found {len(watch_history)} movies in watch history")
+            movies_count = sum(1 for item in watch_history if item["type"] == "movie")
+            episodes_count = sum(1 for item in watch_history if item["type"] == "episode")
+            print(f"✅ Found {len(watch_history)} items in watch history ({movies_count} movies, {episodes_count} TV episodes)")
             return watch_history
             
         except Exception as e:
@@ -228,6 +252,134 @@ class PlexDataExporter:
             print(f"❌ Error uploading to S3: {e}")
             return False
     
+    def search_tmdb_movie(self, title: str, year: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        """Search for movie in TMDB API and return rich metadata"""
+        if TMDB_API_KEY == "your_tmdb_api_key_here":
+            print(f"⚠️ TMDB API key not configured, skipping metadata enrichment for: {title}")
+            return None
+            
+        try:
+            # Search for movie
+            search_url = f"{TMDB_BASE_URL}/search/movie"
+            params = {
+                "api_key": TMDB_API_KEY,
+                "query": title,
+                "include_adult": False
+            }
+            if year:
+                params["year"] = year
+                
+            response = requests.get(search_url, params=params, timeout=10)
+            if response.status_code != 200:
+                print(f"⚠️ TMDB API error for '{title}': {response.status_code}")
+                return None
+                
+            data = response.json()
+            if not data.get("results"):
+                print(f"⚠️ No TMDB results found for: {title}")
+                return None
+                
+            # Get the best match (first result)
+            movie = data["results"][0]
+            
+            # Get detailed movie information
+            movie_id = movie["id"]
+            details_url = f"{TMDB_BASE_URL}/movie/{movie_id}"
+            details_params = {
+                "api_key": TMDB_API_KEY,
+                "append_to_response": "credits,keywords,similar,recommendations"
+            }
+            
+            details_response = requests.get(details_url, params=details_params, timeout=10)
+            if details_response.status_code != 200:
+                print(f"⚠️ TMDB details API error for '{title}': {details_response.status_code}")
+                return None
+                
+            movie_details = details_response.json()
+            
+            # Extract rich metadata
+            enriched_data = {
+                "tmdb_id": movie_details.get("id"),
+                "title": movie_details.get("title"),
+                "original_title": movie_details.get("original_title"),
+                "overview": movie_details.get("overview"),
+                "release_date": movie_details.get("release_date"),
+                "runtime": movie_details.get("runtime"),
+                "budget": movie_details.get("budget"),
+                "revenue": movie_details.get("revenue"),
+                "vote_average": movie_details.get("vote_average"),
+                "vote_count": movie_details.get("vote_count"),
+                "popularity": movie_details.get("popularity"),
+                "adult": movie_details.get("adult"),
+                "backdrop_path": movie_details.get("backdrop_path"),
+                "poster_path": movie_details.get("poster_path"),
+                "genres": [{"id": g["id"], "name": g["name"]} for g in movie_details.get("genres", [])],
+                "production_companies": [{"id": c["id"], "name": c["name"]} for c in movie_details.get("production_companies", [])],
+                "production_countries": [{"iso_3166_1": c["iso_3166_1"], "name": c["name"]} for c in movie_details.get("production_countries", [])],
+                "spoken_languages": [{"iso_639_1": l["iso_639_1"], "name": l["name"]} for l in movie_details.get("spoken_languages", [])],
+                "cast": [{"id": c["id"], "name": c["name"], "character": c["character"], "order": c["order"]} for c in movie_details.get("credits", {}).get("cast", [])[:10]],  # Top 10 cast
+                "crew": [{"id": c["id"], "name": c["name"], "job": c["job"], "department": c["department"]} for c in movie_details.get("credits", {}).get("crew", [])[:5]],  # Top 5 crew
+                "keywords": [{"id": k["id"], "name": k["name"]} for k in movie_details.get("keywords", {}).get("keywords", [])],
+                "similar_movies": [{"id": m["id"], "title": m["title"], "vote_average": m["vote_average"]} for m in movie_details.get("similar", {}).get("results", [])[:5]],  # Top 5 similar
+                "recommendations": [{"id": m["id"], "title": m["title"], "vote_average": m["vote_average"]} for m in movie_details.get("recommendations", {}).get("results", [])[:5]]  # Top 5 recommendations
+            }
+            
+            # Add image URLs
+            if movie_details.get("poster_path"):
+                enriched_data["poster_url"] = f"{TMDB_IMAGE_BASE_URL}/w500{movie_details['poster_path']}"
+            if movie_details.get("backdrop_path"):
+                enriched_data["backdrop_url"] = f"{TMDB_IMAGE_BASE_URL}/w1280{movie_details['backdrop_path']}"
+                
+            print(f"✅ Enriched metadata for: {title}")
+            return enriched_data
+            
+        except Exception as e:
+            print(f"⚠️ Error enriching metadata for '{title}': {e}")
+            return None
+    
+    def enrich_movie_data(self, movies: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Enrich movie data with TMDB metadata"""
+        if TMDB_API_KEY == "your_tmdb_api_key_here":
+            print("⚠️ TMDB API key not configured, skipping metadata enrichment")
+            return movies
+            
+        print("🎬 Enriching movie data with TMDB metadata...")
+        enriched_movies = []
+        
+        for i, movie in enumerate(movies):
+            print(f"📊 Processing {i+1}/{len(movies)}: {movie.get('title', 'Unknown')}")
+            
+            # Try to extract year from various fields
+            year = None
+            if movie.get('year'):
+                try:
+                    year = int(movie['year'])
+                except (ValueError, TypeError):
+                    pass
+            
+            # Search TMDB for this movie
+            tmdb_data = self.search_tmdb_movie(movie.get('title', ''), year)
+            
+            # Combine original data with enriched data
+            enriched_movie = movie.copy()
+            if tmdb_data:
+                enriched_movie['tmdb_metadata'] = tmdb_data
+                enriched_movie['enriched'] = True
+            else:
+                enriched_movie['enriched'] = False
+                
+            enriched_movies.append(enriched_movie)
+            
+            # Rate limiting - TMDB allows 40 requests per 10 seconds
+            if (i + 1) % 10 == 0:
+                print(f"⏳ Rate limiting: waiting 2 seconds...")
+                time.sleep(2)
+        
+        enriched_count = sum(1 for movie in enriched_movies if movie.get('enriched'))
+        print(f"✅ Metadata enrichment complete: {enriched_count}/{len(movies)} movies enriched")
+        
+        return enriched_movies
+
     def export_data(self, days_back: int = 365) -> bool:
         """Main export function"""
         print("🎬 Starting Plex data export...")
@@ -246,25 +398,38 @@ class PlexDataExporter:
             print("⚠️ No watch history found")
             return False
         
+        # Enrich with TMDB metadata (Phase 2 Enhancement 1)
+        print("🎬 Phase 2 Enhancement 1: Rich Metadata Integration")
+        enriched_watch_history = self.enrich_movie_data(watch_history)
+        
         # Calculate statistics
-        statistics = self.calculate_statistics(watch_history)
+        statistics = self.calculate_statistics(enriched_watch_history)
         
         # Prepare export data
         export_data = {
             "exportedAt": datetime.now().isoformat(),
             "serverInfo": server_info,
-            "watchHistory": watch_history,
+            "watchHistory": enriched_watch_history,
             "statistics": statistics,
             "exportSettings": {
                 "daysBack": days_back,
-                "totalMovies": len(watch_history)
+                "totalMovies": len(enriched_watch_history),
+                "enrichedMovies": sum(1 for movie in enriched_watch_history if movie.get('enriched', False))
+            },
+            "phase2Enhancements": {
+                "richMetadataEnabled": TMDB_API_KEY != "your_tmdb_api_key_here",
+                "tmdbApiConfigured": TMDB_API_KEY != "your_tmdb_api_key_here"
             }
         }
         
         # Upload to S3 with optimizations
         if self.upload_to_s3_optimized(export_data):
             print("🎉 Plex data export completed successfully!")
-            print(f"📊 Exported {len(watch_history)} movies")
+            movies_count = sum(1 for item in enriched_watch_history if item["type"] == "movie")
+            episodes_count = sum(1 for item in enriched_watch_history if item["type"] == "episode")
+            print(f"📊 Exported {len(enriched_watch_history)} items ({movies_count} movies, {episodes_count} TV episodes)")
+            enriched_count = sum(1 for movie in enriched_watch_history if movie.get('enriched', False))
+            print(f"🎬 Rich metadata: {enriched_count}/{len(enriched_watch_history)} movies enriched")
             
             # Safe display of top genre
             top_genres = statistics.get('topGenres', [])

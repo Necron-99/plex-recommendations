@@ -1,23 +1,8 @@
-# =============================================================================
-# PYTHON ENVIRONMENT
-# =============================================================================
-
-# Virtual environments
-plex-venv/
-venv/
-env/
-ENV/
-env.bak/
-venv.bak/
-
-# Python cache
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
-
-# Python distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -34,147 +19,77 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# =============================================================================
-# NODE.JS
-# =============================================================================
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
 
-# Dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.npm
-.eslintcache
-jspm_packages/
-.yarn-integrity
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# =============================================================================
-# AWS LAMBDA
-# =============================================================================
-
-# Lambda deployment packages
-*.zip
-lambda-*.zip
-plex-analyzer.zip
-
-# =============================================================================
-# TEST AND TEMPORARY FILES
-# =============================================================================
-
-# Test response files
-*-response.json
-*-test-response.json
-terraform-stats-response.json
-plex-stats-response.json
-
-# Temporary deployment files
-*-deployment-*.json
-*-temp-*.json
-
-# =============================================================================
-# OPERATING SYSTEM FILES
-# =============================================================================
-
-# macOS
+# OS
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
-.AppleDouble
-.LSOverride
-Icon
-.DocumentRevisions-V100
-.fseventsd
-.TemporaryItems
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-
-# Windows
-Thumbs.db
 ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
+Thumbs.db
 
-# Linux
-*~
+# AWS
+.aws/
+*.pem
+*.key
 
-# =============================================================================
-# IDE AND EDITOR FILES
-# =============================================================================
+# Configuration files with sensitive data
+config.py
+.env
+.env.local
+.env.production
+.env.staging
 
-# VSCode
-.vscode/
-*.code-workspace
-
-# IntelliJ IDEA
-.idea/
-*.iml
-*.ipr
-*.iws
-
-# Vim
-*.swp
-*.swo
-
-# Emacs
-*~
-\#*\#
-/.emacs.desktop
-/.emacs.desktop.lock
-*.elc
-auto-save-list
-tramp
-.\#*
-
-# =============================================================================
-# LOGS AND CACHE
-# =============================================================================
-
-# Log files
+# Logs
 *.log
 logs/
 
-# Cache directories
-.cache/
-cache/
-
 # Temporary files
-tmp/
+*.tmp
+*.temp
 temp/
-.tmp/
-.temp/
+tmp/
 
-# =============================================================================
-# SENSITIVE DATA
-# =============================================================================
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Lambda deployment packages
+*.zip
+!deployment-packages/
 
-# Configuration files with sensitive data
-config.json
-secrets.json
-credentials.json
-
-# Plex tokens and credentials
-plex-token.txt
-plex-credentials.json
-
-# =============================================================================
-# BACKUP FILES
-# =============================================================================
+# Data files
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+plex-data/
+watch-history-*.json
+enhanced-plex-history-*.json
+recovered-plex-history-*.json
 
 # Backup files
 *.backup
 *.bak
-*.old
-*.orig
 
-# Backup directories
-backup/
+# Test files
+test-*.json
+*-test.json

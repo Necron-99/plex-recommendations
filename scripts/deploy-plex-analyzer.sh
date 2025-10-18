@@ -27,7 +27,7 @@ echo "🚀 Creating optimized Plex analyzer Lambda function..."
 aws lambda create-function \
     --function-name robert-consulting-plex-analyzer \
     --runtime nodejs20.x \
-    --role arn:aws:iam::228480945348:role/robert-consulting-dashboard-api-role \
+    --role arn:aws:iam::YOUR_ACCOUNT_ID:role/YOUR_LAMBDA_ROLE \
     --handler index.handler \
     --zip-file fileb://plex-analyzer.zip \
     --timeout 60 \
@@ -39,7 +39,7 @@ aws lambda create-function \
 echo "🔧 Setting environment variables..."
 aws lambda update-function-configuration \
     --function-name robert-consulting-plex-analyzer \
-    --environment Variables='{"S3_BUCKET":"robert-consulting-cache","AWS_REGION":"us-east-1"}' \
+    --environment Variables='{"S3_BUCKET":"your-s3-bucket-name","AWS_REGION":"us-east-1"}' \
     --region us-east-1
 
 # Test the function

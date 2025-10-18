@@ -91,6 +91,17 @@
             background: #6c757d;
         }
         
+        .genre-tag, .decade-tag {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            margin: 2px;
+            font-weight: 500;
+        }
+        
         .loading {
             text-align: center;
             padding: 40px;
@@ -309,6 +320,31 @@
                 </div>
             </div>
             
+            <!-- Phase 2 Enhancement 1: Rich Metadata Recommendations -->
+            <div class="recommendations-section" id="enhanced-section" style="display: none;">
+                <h2 class="section-title">🎬 Enhanced Recommendations (Rich Metadata)</h2>
+                <div class="recommendation-grid">
+                    <div class="recommendation-card">
+                        <div class="recommendation-title">Cast-Based Recommendations</div>
+                        <ul class="recommendation-list" id="cast-recommendations"></ul>
+                    </div>
+                    <div class="recommendation-card">
+                        <div class="recommendation-title">Director-Based Recommendations</div>
+                        <ul class="recommendation-list" id="director-recommendations"></ul>
+                    </div>
+                </div>
+                <div class="recommendation-grid">
+                    <div class="recommendation-card">
+                        <div class="recommendation-title">Similar Movies (TMDB)</div>
+                        <ul class="recommendation-list" id="similar-movies"></ul>
+                    </div>
+                    <div class="recommendation-card">
+                        <div class="recommendation-title">Enhanced Suggestions</div>
+                        <ul class="recommendation-list" id="enhanced-general"></ul>
+                    </div>
+                </div>
+            </div>
+            
             <div class="last-updated">
                 <p>Last updated: <span id="last-updated">-</span></p>
             </div>
@@ -381,6 +417,98 @@
             
             // Update last updated
             document.getElementById('last-updated').textContent = new Date(data.generatedAt).toLocaleString();
+            
+            // Update basic recommendation sections
+            if (data.recommendations) {
+                updateRecommendationList('genre-recommendations', data.recommendations.genreBased || []);
+                updateRecommendationList('decade-recommendations', data.recommendations.decadeBased || []);
+                updateRecommendationList('rating-recommendations', data.recommendations.ratingBased || []);
+                updateRecommendationList('general-recommendations', data.recommendations.general || []);
+                
+                // Update top genres display
+                updateTopGenres(data.summary.topGenres || []);
+                updateTopDecades(data.summary.topDecades || []);
+                updateRatingInfo(data.summary.averageRating);
+            }
+            
+            // Phase 2 Enhancement 1: Handle enhanced recommendations
+            if (data.phase2Enhancements && data.phase2Enhancements.richMetadataEnabled) {
+                console.log('🎬 Phase 2 Enhancement 1: Rich metadata detected');
+                document.getElementById('enhanced-section').style.display = 'block';
+                
+                // Update enhanced recommendation sections
+                updateRecommendationList('cast-recommendations', data.recommendations.castBased || []);
+                updateRecommendationList('director-recommendations', data.recommendations.directorBased || []);
+                updateRecommendationList('similar-movies', data.recommendations.similarMovies || []);
+                updateRecommendationList('enhanced-general', data.recommendations.general?.filter(r => r.enhanced) || []);
+            } else {
+                document.getElementById('enhanced-section').style.display = 'none';
+            }
+        }
+        
+        function updateRecommendationList(elementId, recommendations) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+            
+            element.innerHTML = '';
+            if (recommendations.length === 0) {
+                element.innerHTML = '<li>No recommendations available</li>';
+                return;
+            }
+            
+            recommendations.forEach(rec => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <strong>${rec.suggestion}</strong><br>
+                    <small>${rec.reason}</small>
+                    ${rec.enhanced ? '<br><span style="color: #667eea; font-size: 0.8em;">✨ Enhanced with rich metadata</span>' : ''}
+                `;
+                element.appendChild(li);
+            });
+        }
+        
+        function updateTopGenres(genres) {
+            const element = document.getElementById('top-genres');
+            if (!element) return;
+            
+            if (genres.length === 0) {
+                element.innerHTML = '<p>No genre data available</p>';
+                return;
+            }
+            
+            const genreList = genres.map(genre => 
+                `<span class="genre-tag">${genre.genre} (${genre.count})</span>`
+            ).join(' ');
+            
+            element.innerHTML = genreList;
+        }
+        
+        function updateTopDecades(decades) {
+            const element = document.getElementById('top-decades');
+            if (!element) return;
+            
+            if (decades.length === 0) {
+                element.innerHTML = '<p>No decade data available</p>';
+                return;
+            }
+            
+            const decadeList = decades.map(decade => 
+                `<span class="decade-tag">${decade.decade}s (${decade.count})</span>`
+            ).join(' ');
+            
+            element.innerHTML = decadeList;
+        }
+        
+        function updateRatingInfo(averageRating) {
+            const element = document.getElementById('rating-info');
+            if (!element) return;
+            
+            if (!averageRating || averageRating === 0) {
+                element.innerHTML = '<p>No rating data available</p>';
+                return;
+            }
+            
+            element.innerHTML = `<p>Average rating: <strong>${averageRating.toFixed(1)}/10</strong></p>`;
         }
         
         function viewRawData() {
