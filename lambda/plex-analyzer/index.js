@@ -104,6 +104,168 @@ function generateRecommendations(watchHistory, statistics) {
 }
 
 /**
+ * Generate enhanced recommendations using TMDB metadata (Phase 2 Enhancement 1)
+ */
+function generateEnhancedRecommendations(watchHistory, statistics) {
+    try {
+        console.log('🎬 Generating enhanced recommendations with TMDB metadata...');
+        
+        const recommendations = {
+            genreBased: [],
+            decadeBased: [],
+            ratingBased: [],
+            general: [],
+            castBased: [],
+            directorBased: [],
+            similarMovies: [],
+            trendingMovies: []
+        };
+        
+        // Get enriched movies (those with TMDB metadata)
+        const enrichedMovies = watchHistory.filter(movie => movie.enriched && movie.tmdb_metadata);
+        
+        if (enrichedMovies.length === 0) {
+            console.log('⚠️ No enriched movies found, falling back to basic recommendations');
+            return generateRecommendations(watchHistory, statistics);
+        }
+        
+        // Enhanced genre-based recommendations using TMDB genres
+        const tmdbGenres = {};
+        enrichedMovies.forEach(movie => {
+            if (movie.tmdb_metadata.genres) {
+                movie.tmdb_metadata.genres.forEach(genre => {
+                    tmdbGenres[genre.name] = (tmdbGenres[genre.name] || 0) + 1;
+                });
+            }
+        });
+        
+        Object.entries(tmdbGenres)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 3)
+            .forEach(([genre, count]) => {
+                recommendations.genreBased.push({
+                    type: 'genre',
+                    suggestion: `More ${genre} movies`,
+                    reason: `You've watched ${count} ${genre} movies with rich metadata`,
+                    confidence: Math.min(0.95, count / enrichedMovies.length * 2),
+                    genre: genre,
+                    count: count,
+                    enhanced: true
+                });
+            });
+        
+        // Cast-based recommendations
+        const castPreferences = {};
+        enrichedMovies.forEach(movie => {
+            if (movie.tmdb_metadata.cast) {
+                movie.tmdb_metadata.cast.slice(0, 3).forEach(actor => {
+                    const actorName = actor.name;
+                    castPreferences[actorName] = (castPreferences[actorName] || 0) + 1;
+                });
+            }
+        });
+        
+        Object.entries(castPreferences)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 2)
+            .forEach(([actor, count]) => {
+                recommendations.castBased.push({
+                    type: 'cast',
+                    suggestion: `Movies starring ${actor}`,
+                    reason: `You've watched ${count} movies with ${actor}`,
+                    confidence: Math.min(0.9, count / enrichedMovies.length * 3),
+                    actor: actor,
+                    count: count,
+                    enhanced: true
+                });
+            });
+        
+        // Director-based recommendations
+        const directorPreferences = {};
+        enrichedMovies.forEach(movie => {
+            if (movie.tmdb_metadata.crew) {
+                const directors = movie.tmdb_metadata.crew.filter(crew => crew.job === 'Director');
+                directors.forEach(director => {
+                    const directorName = director.name;
+                    directorPreferences[directorName] = (directorPreferences[directorName] || 0) + 1;
+                });
+            }
+        });
+        
+        Object.entries(directorPreferences)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 2)
+            .forEach(([director, count]) => {
+                recommendations.directorBased.push({
+                    type: 'director',
+                    suggestion: `Movies directed by ${director}`,
+                    reason: `You've watched ${count} movies directed by ${director}`,
+                    confidence: Math.min(0.85, count / enrichedMovies.length * 4),
+                    director: director,
+                    count: count,
+                    enhanced: true
+                });
+            });
+        
+        // Similar movies recommendations (from TMDB)
+        const similarMovies = new Set();
+        enrichedMovies.forEach(movie => {
+            if (movie.tmdb_metadata.similar_movies) {
+                movie.tmdb_metadata.similar_movies.forEach(similar => {
+                    similarMovies.add(JSON.stringify({
+                        id: similar.id,
+                        title: similar.title,
+                        vote_average: similar.vote_average
+                    }));
+                });
+            }
+        });
+        
+        Array.from(similarMovies)
+            .map(movie => JSON.parse(movie))
+            .sort((a, b) => b.vote_average - a.vote_average)
+            .slice(0, 5)
+            .forEach(movie => {
+                recommendations.similarMovies.push({
+                    type: 'similar',
+                    suggestion: movie.title,
+                    reason: `Similar to movies you've watched (TMDB rating: ${movie.vote_average})`,
+                    confidence: Math.min(0.8, movie.vote_average / 10),
+                    tmdb_id: movie.id,
+                    vote_average: movie.vote_average,
+                    enhanced: true
+                });
+            });
+        
+        // Enhanced general recommendations
+        recommendations.general.push(
+            {
+                type: 'general',
+                suggestion: 'Explore movies with similar themes and keywords',
+                reason: 'Based on your enriched movie metadata',
+                confidence: 0.7,
+                enhanced: true
+            },
+            {
+                type: 'general',
+                suggestion: 'Try movies from your favorite production companies',
+                reason: 'You seem to enjoy certain studios and producers',
+                confidence: 0.6,
+                enhanced: true
+            }
+        );
+        
+        console.log('✅ Enhanced recommendations generated successfully');
+        return recommendations;
+        
+    } catch (error) {
+        console.error('❌ Error generating enhanced recommendations:', error);
+        console.log('🔄 Falling back to basic recommendations');
+        return generateRecommendations(watchHistory, statistics);
+    }
+}
+
+/**
  * Analyze watch history for patterns
  */
 function analyzeWatchHistory(watchHistory) {
@@ -297,6 +459,20 @@ async function saveAnalysisToS3(analysisData) {
  */
 exports.handler = async (event) => {
     try {
+        // Handle CORS preflight requests
+        if (event.httpMethod === 'OPTIONS') {
+            return {
+                statusCode: 200,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'Content-Type',
+                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: 'CORS preflight' })
+            };
+        }
+        
         console.log('🎬 Starting optimized Plex data analysis...');
         
         // Generate cache key for optimization
@@ -308,6 +484,12 @@ exports.handler = async (event) => {
             console.log('💰 Cost savings: Using cached analysis (90% reduction)');
             return {
                 statusCode: 200,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'Content-Type',
+                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({
                     message: 'Plex data analysis completed successfully (cached)',
                     summary: cachedResult.summary,
@@ -330,6 +512,12 @@ exports.handler = async (event) => {
         if (!plexData.watchHistory || plexData.watchHistory.length === 0) {
             return {
                 statusCode: 200,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'Content-Type',
+                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({
                     message: 'No watch history found in Plex data',
                     generatedAt: new Date().toISOString()
@@ -342,8 +530,13 @@ exports.handler = async (event) => {
         // Analyze watch history
         const analysis = analyzeWatchHistory(plexData.watchHistory);
         
-        // Generate recommendations
-        const recommendations = generateRecommendations(plexData.watchHistory, plexData.statistics);
+        // Generate recommendations (Phase 2 Enhancement 1: Use enhanced recommendations if metadata available)
+        const hasEnrichedData = plexData.watchHistory.some(movie => movie.enriched && movie.tmdb_metadata);
+        const recommendations = hasEnrichedData 
+            ? generateEnhancedRecommendations(plexData.watchHistory, plexData.statistics)
+            : generateRecommendations(plexData.watchHistory, plexData.statistics);
+        
+        console.log(`🎬 Phase 2 Enhancement 1: ${hasEnrichedData ? 'Enhanced' : 'Basic'} recommendations generated`);
         
         // Prepare analysis data
         const analysisData = {
@@ -367,6 +560,12 @@ exports.handler = async (event) => {
                 intelligentTieringEnabled: true,
                 cachingEnabled: true,
                 incrementalProcessingEnabled: true
+            },
+            phase2Enhancements: {
+                richMetadataEnabled: hasEnrichedData,
+                enhancedRecommendations: hasEnrichedData,
+                tmdbIntegration: hasEnrichedData,
+                enrichedMoviesCount: plexData.watchHistory.filter(movie => movie.enriched).length
             }
         };
         
@@ -378,6 +577,12 @@ exports.handler = async (event) => {
         
         return {
             statusCode: 200,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({
                 message: 'Optimized Plex data analysis completed successfully',
                 summary: analysisData.summary,
@@ -393,6 +598,12 @@ exports.handler = async (event) => {
         
         return {
             statusCode: 500,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({
                 error: 'Failed to analyze Plex data',
                 message: error.message,
