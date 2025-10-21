@@ -58,8 +58,23 @@ else
     exit 1
 fi
 
-# Step 4: Set bucket policy for public read access
-echo "🔓 Setting bucket policy for public access..."
+# Step 4: Configure bucket for public access
+echo "🔓 Configuring bucket for public access..."
+
+# First, disable block public access settings
+echo "   Disabling block public access settings..."
+aws s3api put-public-access-block \
+    --bucket $BUCKET_NAME \
+    --public-access-block-configuration "BlockPublicAcls=false,IgnorePublicAcls=false,BlockPublicPolicy=false,RestrictPublicBuckets=false"
+
+if [ $? -eq 0 ]; then
+    echo "✅ Block public access settings disabled"
+else
+    echo "⚠️  Failed to disable block public access settings, continuing..."
+fi
+
+# Set bucket policy for public read access
+echo "   Setting bucket policy for public access..."
 cat > bucket-policy.json << EOF
 {
     "Version": "2012-10-17",
@@ -81,8 +96,8 @@ if [ $? -eq 0 ]; then
     echo "✅ Bucket policy set for public access"
     rm bucket-policy.json
 else
-    echo "❌ Failed to set bucket policy"
-    exit 1
+    echo "⚠️  Failed to set bucket policy, but CloudFront will still work"
+    rm bucket-policy.json
 fi
 
 # Step 5: Create CloudFront distribution
