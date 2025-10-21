@@ -1,41 +1,84 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+# Plex Recommendations - Git Ignore File
+# This ensures no sensitive data or temporary files are committed
 
-# Virtual environments
-venv/
-env/
-ENV/
-env.bak/
-venv.bak/
+# ===========================================
+# SENSITIVE DATA - NEVER COMMIT
+# ===========================================
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Plex backup files and databases
+backups/
+*.db
+*.db-*
+*.db-wal
+*.db-shm
+*bilbo*
+*azog*
+*plex-backup*
+*plex-db*
 
-# OS
+# API keys and credentials
+.env
+.env.local
+.env.production
+config.json
+secrets.json
+credentials.json
+
+# AWS credentials
+.aws/
+aws-credentials.json
+
+# Plex tokens and server info
+plex-token.txt
+plex-server.txt
+plex-config.json
+
+# ===========================================
+# TEMPORARY FILES
+# ===========================================
+
+# JSON response files
+*.json
+!package*.json
+!tsconfig*.json
+!*.config.json
+
+# Temporary files
+temp-*
+*-temp.*
+*.tmp
+*.temp
+
+# Response files
+response.json
+*-response.json
+temp-response.json
+
+# Data export files
+current-plex-data-*
+blended-plex-data-*
+plex-export-*
+enhanced-plex-history-*
+watch-history-*
+
+# ===========================================
+# DEPLOYMENT FILES
+# ===========================================
+
+# Deployment archives
+*.tar.gz
+*.zip
+plex-recommendations-*.tar.gz
+
+# Local deployment directories
+plex-recommendations/
+s3-deployment/
+
+# ===========================================
+# SYSTEM FILES
+# ===========================================
+
+# macOS
 .DS_Store
 .DS_Store?
 ._*
@@ -44,27 +87,15 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# AWS
-.aws/
-*.pem
-*.key
+# Windows
+*.lnk
 
-# Configuration files with sensitive data
-config.py
-.env
-.env.local
-.env.production
-.env.staging
+# Linux
+*~
 
-# Logs
-*.log
-logs/
-
-# Temporary files
-*.tmp
-*.temp
-temp/
-tmp/
+# ===========================================
+# DEVELOPMENT FILES
+# ===========================================
 
 # Node.js
 node_modules/
@@ -72,34 +103,44 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Lambda deployment packages
-*.zip
-!deployment-packages/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# Data files
-*.json
-!package.json
-!package-lock.json
-!tsconfig.json
-plex-data/
-watch-history-*.json
-enhanced-plex-history-*.json
-recovered-plex-history-*.json
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Backup files
-*.backup
-*.bak
+# ===========================================
+# LOGS
+# ===========================================
 
-# Test files
-test-*.json
-*-test.json
+# Log files
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Response files
-response*.json
+# ===========================================
+# SECURITY NOTES
+# ===========================================
 
-# Virtual environment directories
-plex-venv/
-scripts/plex-venv/
-
-# Python virtual environments
-scripts/venv/
+# Remember: Never commit:
+# - Plex database files
+# - API keys or tokens
+# - AWS credentials
+# - Personal data
+# - Backup files
+# - Temporary response files

@@ -18,14 +18,14 @@ import sys
 import time
 
 # Configuration
-PLEX_SERVER = "your-plex-server:32400"
-PLEX_TOKEN = "your_plex_token_here"
-S3_BUCKET = "your-s3-bucket-name"
+PLEX_SERVER = "192.168.0.109:32400"
+PLEX_TOKEN = "iUAXXUBe9Hno42-aHy5E"
+S3_BUCKET = "plex-recommendations-c7c49ce4"
 AWS_PROFILE = "default"  # or specify a profile
 AWS_REGION = "us-east-1"
 
 # TMDB API Configuration for rich metadata
-TMDB_API_KEY = "your_tmdb_api_key_here"  # Get from https://www.themoviedb.org/settings/api
+TMDB_API_KEY = "698fb6e88fe47726b538e994123d6f9d"  # Get from https://www.themoviedb.org/settings/api
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p"
 
