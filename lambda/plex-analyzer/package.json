@@ -1,8 +1,11 @@
 {
   "name": "plex-analyzer",
-  "version": "2.0.0",
-  "description": "Enhanced Lambda function with ML-powered movie recommendations",
-  "main": "enhanced-index.js",
+  "version": "3.0.0",
+  "description": "Enhanced Lambda function with comprehensive movie database and ML-powered recommendations",
+  "main": "enhanced-with-comprehensive-db.js",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.0.0"
   },

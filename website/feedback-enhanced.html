@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎬 Plex Movie Recommendations</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .admin-controls {
+            background: #f8f9fa;
+            border: 2px solid #28a745;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: none;
+        }
+        
+        .admin-controls.show {
+            display: block;
+        }
+        
+        .admin-header {
+            color: #28a745;
+            font-weight: bold;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .feedback-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .feedback-form input, .feedback-form select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .feedback-form button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .feedback-form button:hover {
+            background: #218838;
+        }
+        
+        .status-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .status-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .recommendations-section {
+            margin-bottom: 30px;
+        }
+        
+        .section-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .movie-recommendation-item {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease;
+            position: relative;
+        }
+        
+        .movie-recommendation-item:hover {
+            transform: translateY(-2px);
+        }
+        
+        .movie-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        
+        .movie-title:hover {
+            color: #007bff;
+        }
+        
+        .movie-title.admin-mode {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .movie-reasons-container {
+            margin-bottom: 10px;
+        }
+        
+        .movie-reason {
+            background: #f8f9fa;
+            padding: 5px 10px;
+            border-radius: 15px;
+            display: inline-block;
+            margin: 2px 5px 2px 0;
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .confidence-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .confidence-bar {
+            height: 8px;
+            background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        .confidence-text {
+            font-size: 0.9em;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .feedback-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: none;
+        }
+        
+        .admin-controls.show .feedback-controls {
+            display: block;
+        }
+        
+        .movie-feedback-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 1000;
+        }
+        
+        .movie-feedback-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .modal-header {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .modal-actions button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .btn-rate {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            flex: 2;
+            font-size: 18px;
+            padding: 15px;
+        }
+        
+        .btn-rate:hover {
+            background: linear-gradient(45deg, #218838, #1ea085);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-cancel {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-cancel:hover {
+            background: #545b62;
+        }
+        
+        .rating-input-large {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            text-align: center;
+            margin: 10px 0;
+        }
+        
+        .rating-input-large:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+        
+        .feedback-controls button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+        
+        .feedback-controls button:hover {
+            background: #0056b3;
+        }
+        
+        .feedback-controls button.watched {
+            background: #28a745;
+        }
+        
+        .feedback-controls button.watched:hover {
+            background: #218838;
+        }
+        
+        .rating-input {
+            width: 60px;
+            padding: 2px 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .update-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 20px;
+            transition: background 0.3s ease;
+        }
+        
+        .update-button:hover {
+            background: #5a6fd8;
+        }
+        
+        .update-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Plex Movie Recommendations</h1>
+        
+        <!-- Admin Controls (Hidden by default) -->
+        <div class="admin-controls" id="admin-controls">
+            <div class="admin-header">🔧 Admin Feedback Controls</div>
+            <div class="feedback-form">
+                <input type="text" id="movie-id-input" placeholder="Movie ID (tmdb_123)" style="width: 150px;">
+                <select id="feedback-action">
+                    <option value="watched">Mark as Watched</option>
+                    <option value="rating">Update Rating</option>
+                </select>
+                <input type="number" id="rating-input" placeholder="Rating (1-10)" min="1" max="10" style="width: 100px;">
+                <button onclick="submitFeedback()">Submit Feedback</button>
+            </div>
+        </div>
+        
+        <!-- Status Section -->
+        <div class="status-section">
+            <div class="status-title">📊 System Status</div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value" id="total-movies">-</div>
+                    <div class="stat-label">Total Movies Analyzed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="avg-rating">-</div>
+                    <div class="stat-label">Average Rating</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="top-genre">-</div>
+                    <div class="stat-label">Top Genre</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="total-recommendations">-</div>
+                    <div class="stat-label">Total Recommendations</div>
+                </div>
+            </div>
+            <div style="text-align: center;">
+                <button class="update-button" onclick="updateRecommendations()" id="update-btn">🔄 Update Recommendations</button>
+            </div>
+        </div>
+        
+        <!-- Error/Success Messages -->
+        <div id="error" class="error hidden">
+            <strong>Error:</strong> <span id="error-message"></span>
+        </div>
+        <div id="success" class="success hidden">
+            <strong>Success:</strong> <span id="success-message"></span>
+        </div>
+        
+        <!-- Loading Indicator -->
+        <div id="loading" class="loading hidden">
+            <div>🔄 Loading recommendations...</div>
+        </div>
+        
+        <!-- Recommendations Sections -->
+        <div class="recommendations-section">
+            <div class="section-title">🤖 ML-Powered Recommendations</div>
+            
+            <h3>Content-Based ML Recommendations</h3>
+            <ul id="ml-content-recommendations" class="recommendation-list">
+                <li class="loading">Loading content-based recommendations...</li>
+            </ul>
+            
+            <h3>Collaborative ML Recommendations</h3>
+            <ul id="ml-collaborative-recommendations" class="recommendation-list">
+                <li class="loading">Loading collaborative recommendations...</li>
+            </ul>
+            
+            <h3>Hybrid ML Recommendations</h3>
+            <ul id="ml-hybrid-recommendations" class="recommendation-list">
+                <li class="loading">Loading hybrid recommendations...</li>
+            </ul>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <div>Last updated: <span id="last-updated">-</span></div>
+            <div>Powered by AI • Robert Consulting robertconsulting.net</div>
+            <div>Hosted on AWS S3 + CloudFront + Route53</div>
+        </div>
+    </div>
+
+    <!-- Movie Feedback Modal -->
+    <div class="movie-feedback-overlay" id="feedback-modal">
+        <div class="movie-feedback-modal">
+            <div class="modal-header" id="modal-movie-title">Movie Title</div>
+            <div style="margin-bottom: 20px;">
+                <label for="modal-rating-input">Rate this movie (1-10) - will also mark as watched:</label>
+                <input type="number" id="modal-rating-input" class="rating-input-large" placeholder="Enter rating 1-10" min="1" max="10" required>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-rate" onclick="rateAndMarkWatched()">✓ Rate & Mark as Watched</button>
+                <button class="btn-cancel" onclick="closeFeedbackModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Admin authentication (more complex)
+        const ADMIN_KEY = 'plex-admin-2025-secure-key'; // Change this to your own secure key
+        let isAdmin = false;
+        
+        // Check for admin access
+        function checkAdminAccess() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const adminKey = urlParams.get('admin');
+            
+            // More complex validation
+            if (adminKey && adminKey.length >= 20 && adminKey.includes('robert-consulting')) {
+                // Additional validation
+                const timestamp = new Date().getTime();
+                const expectedHash = btoa(adminKey + timestamp.toString().slice(-6));
+                const providedHash = urlParams.get('hash');
+                
+                if (providedHash && providedHash === expectedHash) {
+                    isAdmin = true;
+                    document.getElementById('admin-controls').classList.add('show');
+                    console.log('🔧 Admin access granted');
+                } else {
+                    // Fallback for simpler access (for testing)
+                    if (adminKey === ADMIN_KEY) {
+                        isAdmin = true;
+                        document.getElementById('admin-controls').classList.add('show');
+                        console.log('🔧 Admin access granted (fallback)');
+                    }
+                }
+            }
+        }
+        
+        // Initialize admin check
+        checkAdminAccess();
+        
+        // Submit feedback
+        async function submitFeedback() {
+            const movieId = document.getElementById('movie-id-input').value.trim();
+            const action = document.getElementById('feedback-action').value;
+            const rating = document.getElementById('rating-input').value;
+            
+            if (!movieId) {
+                showError('Please enter a movie ID');
+                return;
+            }
+            
+            if (action === 'rating' && (!rating || rating < 1 || rating > 10)) {
+                showError('Please enter a valid rating (1-10)');
+                return;
+            }
+            
+            try {
+                const response = await fetch('https://4ztgxq5q2rtm72bqyxaf7jttou0crmnj.lambda-url.us-east-1.on.aws/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        feedback: {
+                            movieId: movieId,
+                            action: action,
+                            rating: rating ? parseInt(rating) : null
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showSuccess(`Feedback submitted successfully for ${movieId}`);
+                    document.getElementById('movie-id-input').value = '';
+                    document.getElementById('rating-input').value = '';
+                    
+                    // Refresh recommendations after feedback
+                    setTimeout(() => {
+                        updateRecommendations();
+                    }, 1000);
+                } else {
+                    showError('Failed to submit feedback: ' + (result.message || 'Unknown error'));
+                }
+            } catch (error) {
+                showError('Error submitting feedback: ' + error.message);
+            }
+        }
+        
+        // Show error message
+        function showError(message) {
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('error').classList.remove('hidden');
+            document.getElementById('success').classList.add('hidden');
+        }
+        
+        // Show success message
+        function showSuccess(message) {
+            document.getElementById('success-message').textContent = message;
+            document.getElementById('success').classList.remove('hidden');
+            document.getElementById('error').classList.add('hidden');
+        }
+        
+        // Hide messages
+        function hideMessages() {
+            document.getElementById('error').classList.add('hidden');
+            document.getElementById('success').classList.add('hidden');
+        }
+        
+        // Update recommendations
+        async function updateRecommendations() {
+            hideMessages();
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('update-btn').disabled = true;
+            document.getElementById('update-btn').textContent = '🔄 Updating...';
+            
+            try {
+                console.log('🔄 Fetching fresh recommendations from Lambda...');
+                const response = await fetch('https://4ztgxq5q2rtm72bqyxaf7jttou0crmnj.lambda-url.us-east-1.on.aws/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Fresh recommendations received:', data);
+                    updatePage(data);
+                    showSuccess('Recommendations updated successfully!');
+                } else {
+                    const errorText = await response.text();
+                    console.error('❌ Failed to get fresh recommendations:', errorText);
+                    showError('Failed to load recommendations: ' + response.status);
+                }
+            } catch (error) {
+                console.error('❌ Error fetching fresh recommendations:', error);
+                showError('Error loading recommendations: ' + error.message);
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('update-btn').disabled = false;
+                document.getElementById('update-btn').textContent = '🔄 Update Recommendations';
+            }
+        }
+        
+        // Update page with data
+        function updatePage(data) {
+            try {
+                // Update stats
+                document.getElementById('total-movies').textContent = data.summary?.totalMovies || 0;
+                document.getElementById('avg-rating').textContent = data.summary?.averageRating ? data.summary.averageRating.toFixed(2) : 'N/A';
+                document.getElementById('top-genre').textContent = (data.summary?.topGenres && data.summary.topGenres.length > 0) ? data.summary.topGenres[0].genre : 'N/A';
+                document.getElementById('total-recommendations').textContent = data.summary?.totalRecommendations || 0;
+                
+                // Update last updated
+                document.getElementById('last-updated').textContent = new Date(data.generatedAt).toLocaleString();
+                
+                // Update ML recommendation sections
+                if (data.recommendations) {
+                    updateMLRecommendationList('ml-content-recommendations', data.recommendations.mlContentBased || []);
+                    updateMLRecommendationList('ml-collaborative-recommendations', data.recommendations.mlCollaborative || []);
+                    updateMLRecommendationList('ml-hybrid-recommendations', data.recommendations.mlHybrid || []);
+                }
+                
+                // Show feedback system status if admin
+                if (isAdmin && data.feedbackSystem) {
+                    console.log('📝 Feedback System Status:', data.feedbackSystem);
+                }
+                
+            } catch (error) {
+                console.error('Error in updatePage:', error);
+                showError('Error updating page: ' + error.message);
+            }
+        }
+        
+        // Update ML recommendation list
+        function updateMLRecommendationList(elementId, recommendations) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+            
+            element.innerHTML = '';
+            if (recommendations.length === 0) {
+                element.innerHTML = '<li>No recommendations available</li>';
+                return;
+            }
+            
+            recommendations.forEach(rec => {
+                const li = document.createElement('li');
+                li.className = 'movie-recommendation-item';
+                
+                // Create feedback controls for admin
+                let feedbackControls = '';
+                if (isAdmin) {
+                    feedbackControls = `
+                        <div class="feedback-controls">
+                            <button onclick="markAsWatched('${rec.movieId}')">✓ Watched</button>
+                            <input type="number" class="rating-input" id="rating-${rec.movieId}" placeholder="1-10" min="1" max="10">
+                            <button onclick="submitRating('${rec.movieId}')">Rate</button>
+                        </div>
+                    `;
+                }
+                
+                // Make movie title clickable for admin
+                const titleClass = isAdmin ? 'movie-title admin-mode' : 'movie-title';
+                const titleClick = isAdmin ? `onclick="openFeedbackModal('${rec.movieId}', '${rec.suggestion}', '${rec.year || ''}')"` : '';
+                
+                li.innerHTML = `
+                    ${feedbackControls}
+                    <div class="${titleClass}" ${titleClick}>${rec.suggestion} ${rec.year ? `(${rec.year})` : ''}</div>
+                    <div class="movie-reasons-container">
+                        <div class="movie-reason">${rec.reason}</div>
+                    </div>
+                    ${rec.confidence ? `<div class="confidence-bar-container"><div class="confidence-bar" style="width: ${rec.confidence * 100}%;"></div><span class="confidence-text">${(rec.confidence * 100).toFixed(1)}% Confidence</span></div>` : ''}
+                `;
+                element.appendChild(li);
+            });
+        }
+        
+        // Mark movie as watched (admin only)
+        async function markAsWatched(movieId) {
+            if (!isAdmin) return;
+            
+            try {
+                const response = await fetch('https://4ztgxq5q2rtm72bqyxaf7jttou0crmnj.lambda-url.us-east-1.on.aws/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        feedback: {
+                            movieId: movieId,
+                            action: 'watched'
+                        }
+                    })
+                });
+                
+                if (response.ok) {
+                    showSuccess(`Marked ${movieId} as watched`);
+                    setTimeout(() => updateRecommendations(), 1000);
+                } else {
+                    showError('Failed to mark as watched');
+                }
+            } catch (error) {
+                showError('Error marking as watched: ' + error.message);
+            }
+        }
+        
+        // Submit rating (admin only)
+        async function submitRating(movieId) {
+            if (!isAdmin) return;
+            
+            const ratingInput = document.getElementById(`rating-${movieId}`);
+            const rating = ratingInput.value;
+            
+            if (!rating || rating < 1 || rating > 10) {
+                showError('Please enter a valid rating (1-10)');
+                return;
+            }
+            
+            try {
+                const response = await fetch('https://4ztgxq5q2rtm72bqyxaf7jttou0crmnj.lambda-url.us-east-1.on.aws/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        feedback: {
+                            movieId: movieId,
+                            action: 'rating',
+                            rating: parseInt(rating)
+                        }
+                    })
+                });
+                
+                if (response.ok) {
+                    showSuccess(`Rated ${movieId} as ${rating}/10`);
+                    ratingInput.value = '';
+                    setTimeout(() => updateRecommendations(), 1000);
+                } else {
+                    showError('Failed to submit rating');
+                }
+            } catch (error) {
+                showError('Error submitting rating: ' + error.message);
+            }
+        }
+        
+        // Modal functions
+        let currentMovieId = null;
+        let currentMovieTitle = null;
+        
+        function openFeedbackModal(movieId, movieTitle, year) {
+            if (!isAdmin) return;
+            
+            currentMovieId = movieId;
+            currentMovieTitle = movieTitle + (year ? ` (${year})` : '');
+            
+            document.getElementById('modal-movie-title').textContent = currentMovieTitle;
+            document.getElementById('modal-rating-input').value = '';
+            document.getElementById('feedback-modal').style.display = 'block';
+        }
+        
+        function closeFeedbackModal() {
+            document.getElementById('feedback-modal').style.display = 'none';
+            currentMovieId = null;
+            currentMovieTitle = null;
+        }
+        
+        async function rateAndMarkWatched() {
+            if (!isAdmin || !currentMovieId) return;
+            
+            const rating = document.getElementById('modal-rating-input').value;
+            
+            if (!rating || rating < 1 || rating > 10) {
+                showError('Please enter a valid rating (1-10)');
+                return;
+            }
+            
+            console.log('⭐ Rating and marking movie as watched:', {
+                movieId: currentMovieId,
+                movieTitle: currentMovieTitle,
+                rating: rating
+            });
+            
+            try {
+                const url = 'https://4ztgxq5q2rtm72bqyxaf7jttou0crmnj.lambda-url.us-east-1.on.aws/';
+                const payload = {
+                    feedback: {
+                        movieId: currentMovieId,
+                        action: 'watched',
+                        rating: parseInt(rating)
+                    }
+                };
+                
+                console.log('📤 Sending request to:', url);
+                console.log('📤 Payload:', payload);
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                console.log('📥 Response status:', response.status);
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('✅ Success response:', result);
+                    showSuccess(`Rated "${currentMovieTitle}" as ${rating}/10 and marked as watched`);
+                    closeFeedbackModal();
+                    
+                    // Immediately refresh recommendations to remove watched movie
+                    console.log('🔄 Refreshing recommendations after rating and marking as watched...');
+                    await updateRecommendations();
+                } else {
+                    const errorText = await response.text();
+                    console.error('❌ Error response:', errorText);
+                    showError('Failed to rate and mark as watched: ' + response.status);
+                }
+            } catch (error) {
+                console.error('❌ Fetch error:', error);
+                showError('Error rating and marking as watched: ' + error.message);
+            }
+        }
+        
+        // Close modal when clicking outside
+        document.getElementById('feedback-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeFeedbackModal();
+            }
+        });
+        
+        // Test Function URL connectivity on load
+        async function testFunctionURL() {
+            try {
+                console.log('🔍 Testing Function URL connectivity...');
+                const response = await fetch('https://4ztgxq5q2rtm72bqyxaf7jttou0crmnj.lambda-url.us-east-1.on.aws/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ test: true })
+                });
+                
+                if (response.ok) {
+                    console.log('✅ Function URL is accessible');
+                } else {
+                    console.error('❌ Function URL returned status:', response.status);
+                }
+            } catch (error) {
+                console.error('❌ Function URL test failed:', error);
+            }
+        }
+        
+        // Load initial recommendations
+        window.addEventListener('load', () => {
+            testFunctionURL();
+            updateRecommendations();
+        });
+    </script>
+</body>
+</html>

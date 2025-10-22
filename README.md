@@ -37,9 +37,16 @@ A personalized movie recommendation system that analyzes your Plex watch history
 - TMDB API account (free)
 
 ### Configuration
-1. **Plex Setup**: Get your Plex token from [Plex Support](https://support.plex.tv/articles/204059436/)
-2. **TMDB API**: Create account at [TMDB](https://www.themoviedb.org/) and get API key
-3. **AWS Setup**: Create S3 bucket and configure IAM roles
+1. **Environment Setup**: Copy the configuration template
+   ```bash
+   cp examples/config-templates/env-template.txt .env
+   # Edit .env with your actual values
+   ```
+
+2. **Required Services**:
+   - **Plex**: Get your Plex token from [Plex Support](https://support.plex.tv/articles/204059436/)
+   - **TMDB API**: Create account at [TMDB](https://www.themoviedb.org/) and get API key
+   - **AWS**: Create S3 bucket and configure IAM roles
 
 ### Installation
 ```bash
@@ -96,18 +103,23 @@ See [SETUP.md](SETUP.md) for detailed configuration instructions.
 
 ```
 plex-recommendations/
-├── scripts/
+├── scripts/                       # Core data processing scripts
 │   ├── plex-data-exporter.py      # Main data export script
-│   ├── enhanced-plex-exporter.py  # Enhanced data collection
-│   ├── deploy-plex-analyzer.sh    # Lambda deployment
+│   ├── data-blender.py            # Data blending and processing
+│   ├── tmdb-api-integration.py    # TMDB API integration
 │   └── requirements.txt           # Python dependencies
-├── lambda/
+├── examples/                      # Demo scripts and templates
+│   ├── demo-scripts/              # Example and testing scripts
+│   └── config-templates/          # Configuration templates
+├── lambda/                        # AWS Lambda functions
 │   └── plex-analyzer/
-│       ├── index.js               # Lambda function
+│       ├── feedback-enhanced.js   # Main Lambda function
 │       └── package.json           # Node.js dependencies
-├── website/
-│   └── index.html                 # Web interface
-├── docs/
+├── website/                       # Web interface files
+│   └── feedback-enhanced.html     # Main web interface
+├── deployment/                    # Deployment automation
+│   └── deploy-subdomain.sh        # AWS deployment scripts
+├── docs/                          # Documentation
 │   ├── API.md                     # API documentation
 │   ├── COST_OPTIMIZATIONS.md      # Cost optimization details
 │   └── PHASE2_ACCURACY_ENHANCEMENTS.md
@@ -148,10 +160,26 @@ The system uses multiple algorithms to provide diverse recommendations:
 
 ## 🔒 Security & Privacy
 
+### Data Protection
 - All data processing happens in your AWS account
 - Plex data is encrypted in transit and at rest
 - No personal data is shared with third parties
 - TMDB API calls only for movie metadata (no personal info)
+
+### Security Features
+- **Environment Variables**: All sensitive data (API keys, tokens, credentials) use environment variables
+- **No Hardcoded Secrets**: All scripts use environment variables or secure input methods
+- **Git Safety**: Comprehensive `.gitignore` prevents accidental commits of sensitive data
+- **Admin Access**: Secure admin authentication with configurable keys
+- **IAM Security**: Roles follow least-privilege principle
+
+### Security Checklist
+- ✅ No hardcoded API keys or tokens
+- ✅ Environment variable configuration
+- ✅ Secure admin authentication
+- ✅ Comprehensive .gitignore
+- ✅ No personal data in logs
+- ✅ Proper IAM permissions
 
 ## 🆘 Troubleshooting
 

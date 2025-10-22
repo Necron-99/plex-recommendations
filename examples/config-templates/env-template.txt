@@ -1,0 +1,43 @@
+# Plex Recommendations Configuration Template
+# Copy this file to .env and fill in your actual values
+
+# ===========================================
+# PLEX CONFIGURATION
+# ===========================================
+PLEX_SERVER=http://your-plex-server:32400
+PLEX_TOKEN=your-plex-token-here
+
+# ===========================================
+# AWS CONFIGURATION
+# ===========================================
+AWS_PROFILE=default
+AWS_REGION=us-east-1
+S3_BUCKET=your-s3-bucket-name
+
+# ===========================================
+# TMDB API CONFIGURATION
+# ===========================================
+TMDB_API_KEY=your-tmdb-api-key-here
+TMDB_ACCESS_TOKEN=your-tmdb-access-token-here
+
+# ===========================================
+# LAMBDA CONFIGURATION
+# ===========================================
+LAMBDA_FUNCTION_NAME=plex-analyzer
+LAMBDA_RUNTIME=nodejs22.x
+LAMBDA_MEMORY_SIZE=512
+LAMBDA_TIMEOUT=30
+
+# ===========================================
+# SECURITY CONFIGURATION
+# ===========================================
+ADMIN_KEY=your-secure-admin-key-here
+ADMIN_URL_HASH_SECRET=your-hash-secret-here
+
+# ===========================================
+# DEPLOYMENT CONFIGURATION
+# ===========================================
+DOMAIN_NAME=your-domain.com
+SUBDOMAIN=plex
+CLOUDFRONT_DISTRIBUTION_ID=your-cloudfront-id
+ROUTE53_HOSTED_ZONE_ID=your-hosted-zone-id
